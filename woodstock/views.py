@@ -3,9 +3,13 @@
 import os
 import markdown
 
+import resource
 import md
 
-configs = {'base_uri': 'http://localhost:5555'}
+resource_url = 'http://localhost:8052'
+resource = resource.Resource(resource_url)
+
+configs = {'resource': [resource]}
 dve = md.DynamicValueExtension(configs=configs)
 mark = markdown.Markdown(extensions=[dve])
 
@@ -25,6 +29,7 @@ class View:
         UTF-8 string HTTP response.
         '''
         method = env['REQUEST_METHOD']
+        print self.template_path, method
         try:
             return getattr(self, method)(env)
         except AttributeError:

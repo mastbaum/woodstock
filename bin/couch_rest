@@ -1,0 +1,43 @@
+#!/usr/bin/env python
+
+import re
+import os
+import sys
+import json
+
+from wsgiref.simple_server import make_server
+
+import woodstock.render
+import woodstock.resource
+
+couch = woodstock.resource.Resource('http://localhost:5984/snoop')
+headers = {'Content-type': 'application/json'}
+
+def main(env, start_response):
+    renderer = woodstock.render.Renderer(start_response)
+
+    path = env['PATH_INFO']
+
+    # todo: add (?key= || (?startkey= && endkey=))
+    match = re.match(r'^\/(?P<proc>[a-zA-Z0-9]+)\/(?P<key>[a-zA-Z0-9]+)(\/(?P<starttime>[0-9]+)\.\.(?P<endtime>[0-9]+))?', path)
+    if match is None or match.group('key') is None or match.group('proc') is None:
+        print 'unmatched path', path
+        return renderer.render_response(404, {}, '404 nope')
+
+    proc = match.group('proc')
+    key = match.group('key')
+    starttime = match.group('starttime')
+    endtime = match.group('endtime')
+
+    if starttime is None:
+        qpath = '_design/snoop/_view/docs_by_time'
+        qs = 'endkey=["%s"]&startkey=["%s",{}]&descending=true&limit=1' % (proc, proc)
+        url = '?'.join([qpath, qs])
+        status, headers, data = couch.get(url)
+        data = json.loads(data)['rows'][0]['value'][key]
+        return renderer.render_response(status, headers, json.dumps(data))
+
+if __name__ == '__main__':
+    httpd = make_server('', 8052, main)
+    httpd.serve_forever()
+

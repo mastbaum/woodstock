@@ -7,15 +7,19 @@ class Resource():
     '''A convenvient wrapper for httplib.'''
     def __init__(self, url):
         '''connect to server based on standard-formatted url string'''
-        match = re.match(r'((?P<protocol>.+):\/\/)?((?P<user>.+):(?P<pw>.+)?@)?(?P<host>.+)\/?$', url)
+        match = re.match(r'((?P<protocol>.+):\/\/)?((?P<user>.+):(?P<pw>.+)?@)?(?P<host>.+?)(\/(?P<baseurl>[a-zA-Z0-9].+))?\/?$', url)
         if not match:
             raise ValueError('Error in URL string')
 
         self.protocol = match.group('protocol')
         self.host = match.group('host')
+        self.base_url = match.group('baseurl')
+        if self.base_url is None:
+            self.base_url = ''
 
+        self.headers = {}
         if match.group('user') and match.group('pw'):
-            self.headers = {'Authorization': 'Basic %s' % base64.encodestring('%s:%s' % (match.group('user'), match.group('pw')))}
+            self.headers['Authorization'] = 'Basic %s' % base64.encodestring('%s:%s' % (match.group('user'), match.group('pw')))
 
     def connect(self):
         '''open an http(s) connection to this server'''
@@ -32,7 +36,9 @@ class Resource():
         # build headers and url
         all_headers = self.headers.copy()
         all_headers.update(headers or {})
-        url = urljoin('', url, **params)
+        url = urljoin(self.base_url, url, **params)
+        if not url.startswith('/'):
+            url = '/' + url
         print url
 
         # make the request
