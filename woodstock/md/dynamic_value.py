@@ -4,7 +4,7 @@ from markdown.util import etree
 
 class DynamicValueExtension(markdown.Extension):
     def extendMarkdown(self, md, md_globals):
-        pattern = r'{dynamic (.+?)}'
+        pattern = r'{value (.+?)}'
         dynamic_value_pattern = DynamicValuePattern(pattern, self.getConfigs())
         md.inlinePatterns.add('dynamic_value', dynamic_value_pattern, '<not_strong')
 

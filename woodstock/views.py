@@ -4,14 +4,21 @@ import os
 import markdown
 
 import resource
-import md
+
+import md.dynamic_value
+import md.dynamic_plot
 
 resource_url = 'http://localhost:8052'
 resource = resource.Resource(resource_url)
 
+with open('templates/base.html') as f:
+    base_html = f.read()
+
 configs = {'resource': [resource]}
-dve = md.DynamicValueExtension(configs=configs)
-mark = markdown.Markdown(extensions=[dve])
+dve = md.dynamic_value.DynamicValueExtension(configs=configs)
+dpe = md.dynamic_plot.DynamicPlotExtension(configs=configs)
+
+mark = markdown.Markdown(extensions=[dve, dpe])
 
 class View:
     def __init__(self, template_path):
@@ -38,7 +45,11 @@ class View:
 class Index(View):
     '''The main page'''
     def GET(self, env):
-        html = mark.convert(self.template).encode('utf-8')
+        data = {
+            'title': 'woodstock',
+            'content': mark.convert(self.template).encode('utf-8')
+        }
+        html = base_html % data
         return 200, self.headers, html
 
 class Meta(View):
