@@ -20,18 +20,22 @@ class DynamicValuePattern(markdown.inlinepatterns.Pattern):
             d = markdown.util.etree.Element('span')
             try:
                 status, headers, body = self.resource.get(uri)
-                body = json.loads(body) #['value']
+                body = json.loads(body)
+
+                # pretty-print dicts and lists
                 if isinstance(body, dict):
                     text = json.dumps(body, sort_keys=True, indent=4)
                     for block in text.split('\n'):
-                        elem = markdown.util.etree.SubElement(d, 'span')
+                        elem = etree.SubElement(d, 'span')
                         elem.text = block.replace(' ', '&nbsp;')
-                        markdown.util.etree.SubElement(d, 'br')
+                        etree.SubElement(d, 'br')
                 elif isinstance(body, list):
                     d.text = json.dumps(body, sort_keys=True, indent=4)
                 else:
                     d.text = str(body)
+
             except Exception:
+                # if anything bad happens, just don't show the element
                 print 'md: failed to get', self.resource.host, uri
                 d.text = ''
         except IndexError:

@@ -39,7 +39,6 @@ class Resource():
         url = urljoin(self.base_url, url, **params)
         if not url.startswith('/'):
             url = '/' + url
-        print url
 
         # make the request
         conn = self.connect()

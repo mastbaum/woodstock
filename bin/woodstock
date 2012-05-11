@@ -6,16 +6,13 @@ import sys
 
 from wsgiref.simple_server import make_server
 
-import woodstock.views
-import woodstock.render
+from woodstock.render import Renderer
 
-rewrites = {
-    r'^\/?$': woodstock.views.Index('templates/index.md'),
-    r'^meta\/?$': woodstock.views.Meta('templates/meta.md')
-}
+# loaded from config
+rewrites = None
 
 def main(env, start_response):
-    renderer = woodstock.render.Renderer(start_response)
+    renderer = Renderer(start_response)
 
     path = env['PATH_INFO'].lstrip('/')
 
@@ -28,6 +25,15 @@ def main(env, start_response):
         return renderer.render_response(404, {}, '404 NOT FOUND :(')
 
 if __name__ == '__main__':
+    config_path = sys.argv[0] if len(sys.argv) > 1 else 'config.py'
+
+    print 'Loading configuration from', config_path
+    dir, f = os.path.split(config_path)
+    sys.path.append(dir)
+    config = __import__(os.path.splitext(f)[0])
+
+    rewrites = config.rewrites
+
     httpd = make_server('', 8051, main)
     httpd.serve_forever()
 

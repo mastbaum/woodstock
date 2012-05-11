@@ -24,21 +24,27 @@ class DynamicPlotPattern(markdown.inlinepatterns.Pattern):
                 if status > 399:
                     raise Exception('rest api returned error')
 
+                # DOM ID of plot div is cleaned-up version of source data uri
                 plot_id = re.sub(r'[\/\_\.\?\=]', '_', uri)
 
+                # script with the data array
                 script_data = etree.SubElement(d, 'script')
                 script_data.text = 'var data_plot_' + plot_id + ' = ' + body
 
+                # div for flot plot
                 plot_div = etree.SubElement(d, 'div')
                 plot_div.set('style', 'height:300px;width:400px;')
                 plot_div.set('class', 'plot')
                 plot_div.set('id', plot_id)
 
+                # prevent etree from self-closing div
                 plot_div.text = '&nbsp;'
 
             except Exception:
+                # if anything bad happens, just don't show the element
                 print 'md: failed to get', self.resource.host, uri
                 d.text = ''
+
         except IndexError:
             d = ''
 
