@@ -6,36 +6,109 @@ import sys
 import json
 
 from wsgiref.simple_server import make_server
+from cgi import parse_qs
 
 import woodstock.render
 import woodstock.resource
 
 couch = woodstock.resource.Resource('http://localhost:5984/snoop')
+view_url = '_design/snoop/_view/docs_by_time'
+
 headers = {'Content-type': 'application/json'}
+
+expr = re.compile(r'^\/(?P<proc>[a-zA-Z0-9]+)\/(?P<key>[a-zA-Z0-9]+)(\/(?P<starttime>[0-9]+)\.\.(?P<endtime>[0-9]+))?')
+
+def build_query(proc, key, starttime=None, endtime=None, limit=None):
+    params = []
+    params.append('descending=true')
+
+    if starttime and endtime:
+        params.append('startkey=["%s",%s]' % (proc, endtime))
+        params.append('endkey=["%s",%s]' % (proc, starttime))
+    else:
+        params.append('startkey=["%s",{}]' % proc)
+        params.append('endkey=["%s"]' % proc)
+
+    if limit is not None:
+        params.append('limit=%s' % limit)
+
+    return '&'.join(params)
+
+def check_cut(k, v, time, operator='='):
+    if len(v) > 1:
+        raise AttributeError('Key may only appear once')
+    value = v[0]
+
+    try:
+        proc, key = k.split('.')
+    except ValueError:
+        raise AttributeError('Malformed key ID ' + k)
+
+    qs = build_query(proc, key, time, time)
+    url = '?'.join([view_url, qs])
+
+    status, headers, data = couch.get(url)
+    data = json.loads(data)['rows'][0]['value']
+
+    if not key in data:
+        return False
+
+    if operator == '=' and str(data[key]) == str(value):
+        return True
+
+    return False
 
 def main(env, start_response):
     renderer = woodstock.render.Renderer(start_response)
 
     path = env['PATH_INFO']
 
-    # todo: add (?key= || (?startkey= && endkey=))
-    match = re.match(r'^\/(?P<proc>[a-zA-Z0-9]+)\/(?P<key>[a-zA-Z0-9]+)(\/(?P<starttime>[0-9]+)\.\.(?P<endtime>[0-9]+))?', path)
+    match = expr.match(path)
     if match is None or match.group('key') is None or match.group('proc') is None:
         print 'unmatched path', path
-        return renderer.render_response(404, {}, '404 nope')
+        return renderer.render_response(404, {}, '404 Not found')
 
     proc = match.group('proc')
     key = match.group('key')
     starttime = match.group('starttime')
     endtime = match.group('endtime')
 
-    if starttime is None:
-        qpath = '_design/snoop/_view/docs_by_time'
-        qs = 'endkey=["%s"]&startkey=["%s",{}]&descending=true&limit=1' % (proc, proc)
-        url = '?'.join([qpath, qs])
+    cuts = parse_qs(env['QUERY_STRING'] or '')
+
+    # just return a number
+    if not starttime and not endtime and len(cuts) == 0:
+        qs = build_query(proc, key, starttime, endtime, limit=1)
+        url = '?'.join([view_url, qs])
+
         status, headers, data = couch.get(url)
-        data = json.loads(data)['rows'][0]['value'][key]
+        data = json.loads(data)['rows']
+
+        data = data[0]['value'][key]
         return renderer.render_response(status, headers, json.dumps(data))
+
+    # return a list of (timestamp, value) tuples, applying any cuts
+    qs = build_query(proc, key, starttime, endtime)
+    url = '?'.join([view_url, qs])
+
+    status, headers, data = couch.get(url)
+    data = json.loads(data)['rows']
+
+    values = []
+    for row in data:
+        timestamp = row['value']['timestamp']
+        cut_pass = True
+        for k, v in cuts.items():
+            try:
+                if not check_cut(k, v, timestamp):
+                    cut_pass = False
+                    break
+            except AttributeError as e:
+                return renderer.render_response(400, {}, 'Error: ' + str(e))
+
+        if cut_pass:
+            values.append((row['value']['timestamp'], row['value'][key]))
+
+    return renderer.render_response(status, headers, json.dumps(values))
 
 if __name__ == '__main__':
     httpd = make_server('', 8052, main)
