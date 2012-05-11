@@ -1,17 +1,9 @@
-from woodstock.resource import Resource
 from woodstock.view import View
-from woodstock import md
-import markdown
+from woodstock.md import DynamicMarkdown
 
-# set up markdown parser
-rest_url = 'http://localhost:8052'
-rest_server = Resource(rest_url)
-
-configs = {'resource': [rest_server]}
-md_parser = markdown.Markdown(extensions=[
-    md.dynamic_value.DynamicValueExtension(configs=configs),
-    md.dynamic_plot.DynamicPlotExtension(configs=configs)
-])
+# set up dynamic markdown parser
+rest_server = 'http://localhost:8052'
+md_parser = DynamicMarkdown(rest_server)
 
 # load up base template
 template_root = './templates/'

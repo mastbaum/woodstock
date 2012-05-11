@@ -35,6 +35,7 @@ class View:
         try:
             return getattr(self, method)(env)
         except AttributeError:
+            raise
             return 501, {}, '501 NOT IMPLEMENTED'
 
     def GET(self, env):
