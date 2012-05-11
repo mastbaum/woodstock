@@ -1,0 +1,18 @@
+<html>
+  <head>
+    <title>%(title)s</title>
+  </head>
+  <body>
+    %(content)s
+  </body>
+  <script src="http://people.iola.dk/olau/flot/jquery.js"></script>
+  <script src="http://people.iola.dk/olau/flot/jquery.flot.js"></script>
+  <script>
+    $(document).ready(function() {
+      $(".plot").each(function(e) {
+        var data = eval('data_plot_' + $(this).attr('id'));
+        $.plot($(this), [data]);
+      });
+    });
+  </script>
+</html>
