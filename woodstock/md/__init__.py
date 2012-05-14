@@ -9,10 +9,16 @@ import markdown
 import woodstock.resource
 import dynamic_value
 import dynamic_plot
+import sparkline
+import sparkrow
+import plotlink
 
 extensions = [
     dynamic_value.DynamicValueExtension,
-    dynamic_plot.DynamicPlotExtension
+    dynamic_plot.DynamicPlotExtension,
+    sparkline.SparklineExtension,
+    sparkrow.SparkrowExtension,
+    plotlink.PlotlinkExtension
 ]
 
 class DynamicMarkdown(markdown.Markdown):
@@ -32,6 +38,8 @@ class DynamicMarkdown(markdown.Markdown):
             ext = [x(configs=configs) for x in extensions]
         else:
             ext = []
+
+        ext.append('tables')
 
         markdown.Markdown.__init__(self, extensions=ext)
 
