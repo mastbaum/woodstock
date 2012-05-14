@@ -4,6 +4,7 @@ import re
 import os
 import sys
 import json
+import time
 
 from wsgiref.simple_server import make_server
 from cgi import parse_qs
@@ -16,7 +17,8 @@ view_url = '_design/snoop/_view/docs_by_time'
 
 headers = {'Content-type': 'application/json'}
 
-expr = re.compile(r'^\/(?P<proc>[a-zA-Z0-9]+)\/(?P<key>[a-zA-Z0-9]+)(\/(?P<starttime>[0-9]+)\.\.(?P<endtime>[0-9]+))?')
+expr = re.compile(r'^\/(?P<proc>[a-zA-Z0-9\_]+)\/(?P<key>[a-zA-Z0-9\_]+)(\/(((?P<starttime>[0-9]+)\.\.(?P<endtime>[0-9]+))|(?P<timerange>[a-z]+)))?')
+#expr = re.compile(r'^\/(?P<proc>[a-zA-Z0-9\_]+)\/(?P<key>[a-zA-Z0-9\_]+)(\/(?P<timerange>[a-z]+))?')
 
 def build_query(proc, key, starttime=None, endtime=None, limit=None):
     params = []
@@ -72,11 +74,34 @@ def main(env, start_response):
     key = match.group('key')
     starttime = match.group('starttime')
     endtime = match.group('endtime')
+    timerange = match.group('timerange')
+
+    # cannot specify both numeric range and range identifier
+    if timerange and (starttime is not None or endtime is not None):
+        return renderer.render_response(400, {}, 'Error: ' + str(e))
+
+    if timerange is not None:
+        now = int(time.time()/60)
+        if timerange == 'hour':
+            starttime = now - 60
+            endtime = now + 10
+        elif timerange == 'day':
+            starttime = now - (24 * 60)
+            endtime = now + 10
+        elif timerange == 'week':
+            starttime = now - (7 * 24 * 60)
+            endtime = now + 10
+        elif timerange == 'month':
+            starttime = now - (4 * 7 * 24 * 60)
+            endtime = now + 10
+        elif timerange == 'year':
+            starttime = now - (12 * 4 * 7 * 24 * 60)
+            endtime = now + 10
 
     cuts = parse_qs(env['QUERY_STRING'] or '')
 
     # just return a number
-    if not starttime and not endtime and len(cuts) == 0:
+    if not starttime and not endtime and len(cuts) == 0 and timerange != 'all':
         qs = build_query(proc, key, starttime, endtime, limit=1)
         url = '?'.join([view_url, qs])
 
